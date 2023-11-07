@@ -1,0 +1,9 @@
+az snapshot create --resource-group cv-d-adminvm --name osdisk-snap-$(date +%F) --source osdisk
+
+az snapshot create -g cv-d-adminvm -n osdisk-snap-$(date +%F) --source osdisk
+
+
+
+azure account list 
+azure account set -s "44de461f-188c-4a56-b3b4-4066756244de"
+az group list --output table   -> list resource groups

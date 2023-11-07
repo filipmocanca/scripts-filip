@@ -1,0 +1,55 @@
+[Unit]
+Description=SAP Instance SAPT01_01
+After=remote-fs.target time-sync.target
+Wants=remote-fs.target
+
+[Service]
+User=t01adm
+Group=sapsys
+TimeoutStartSec=120sec
+TimeoutStopSec=360sec
+Type=notify
+NotifyAccess=all
+KillMode=process
+WorkingDirectory=/usr/sap/T01/ASCS01/work
+Environment=LD_LIBRARY_PATH=/usr/sap/T01/ASCS01/exe
+ExecStart=/usr/sap/T01/ASCS01/exe/sapstartsrv pf=/usr/sap/T01/SYS/profile/T01_ASCS01_sapt01 -setup_env
+KillSignal=SIGINT
+Slice=SAP.slice
+SyslogIdentifier=SAPT01_01
+LimitNOFILE=1048576
+TasksMax=infinity
+Restart=on-failure
+RestartSec=60s
+
+[Install]
+WantedBy=multi-user.target
+[root@cv-d-sapeccap01 system]# cat SAPT01_00.service
+# Automatically generated. Do not modify.
+
+[Unit]
+Description=SAP Instance SAPT01_00
+After=remote-fs.target time-sync.target
+Wants=remote-fs.target
+
+[Service]
+User=t01adm
+Group=sapsys
+TimeoutStartSec=120sec
+TimeoutStopSec=360sec
+Type=notify
+NotifyAccess=all
+KillMode=process
+WorkingDirectory=/usr/sap/T01/DVEBMGS00/work
+Environment=LD_LIBRARY_PATH=/usr/sap/T01/DVEBMGS00/exe
+ExecStart=/usr/sap/T01/DVEBMGS00/exe/sapstartsrv pf=/usr/sap/T01/SYS/profile/T01_DVEBMGS00_sapt01 -setup_env
+KillSignal=SIGINT
+Slice=SAP.slice
+SyslogIdentifier=SAPT01_00
+LimitNOFILE=1048576
+TasksMax=infinity
+Restart=on-failure
+RestartSec=60s
+
+[Install]
+WantedBy=multi-user.target
