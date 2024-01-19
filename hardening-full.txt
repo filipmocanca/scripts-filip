@@ -1,0 +1,218 @@
+#!/bin/bash
+
+echo "1.1.2 Ensure /tmp is configured"
+read -p "Execute"
+if [[ -n $(grep \/tmp /etc/fstab) ]]; then
+    echo "Value will be added"
+	sed -i 's/\/tmp.*defaults.*relatime/\/tmp                    xfs     defaults,rw,nosuid,nodev,noexec,relatime/g' /etc/fstab
+	systemctl daemon-reload
+	systemctl --now enable tmp.mount
+else
+    echo "No result was found"
+fi
+echo "1.1.3.2 Ensure nodev option set on /var partition"
+read -p "Execute"
+if [[ -n $(grep \/var /etc/fstab) ]]; then
+    echo "Value will be added"
+	sed -i 's/\/var.*defaults.*relatime/\/var                    xfs     defaults,rw,nosuid,nodev,noexec,relatime/g' /etc/fstab
+	mount -o remount /var
+else
+    echo "No result was found"
+fi
+echo "1.1.7.2 Ensure nodev option set on /home partition"
+read -p "Execute"
+if [[ -n $(grep \/home /etc/fstab) ]]; then
+    echo "Value will be added"
+	sed -i 's/\/home.*defaults.*relatime/\/home                    xfs     defaults,rw,usrquota,grpquota,nosuid,nodev,relatime/g' /etc/fstab
+	mount -o remount /home
+else
+    echo "No result was found"
+fi
+echo "1.1.8 Configure /dev/shm"
+read -p "Execute"
+if [[ -n $(grep \/dev\/shm /etc/fstab) ]]; then
+    echo "Value will be added"
+	sed -i 's/\/dev/\shm.*defaults.*relatime/\/dev/\shm                   tmpfs	defaults,rw,nosuid,nodev,noexec,relatime/g' /etc/fstab
+	mount -o remount /dev/shm
+else
+    echo "No result was found"
+fi
+echo "1.1.22    Ensure sticky bit is set on all world-writable directories"
+read -p "Execute"
+df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
+echo "1.4.1     Ensure permissions on bootloader config are not overridden"
+read -p "Execute"
+sed -ri 's/chmod\s+[0-7][0-7][0-7]\s+\$\{grub_cfg\}\.new/chmod 400 ${grub_cfg}.new/' /usr/sbin/grub-mkconfig
+sed -ri 's/ && ! grep "\^password" \$\{grub_cfg\}.new >\/dev\/null//' /usr/sbin/grub-mkconfig
+echo "1.4.3     Ensure permissions on bootloader config are configured"
+chown root:root /boot/grub/grub.cfg
+chmod u-wx,go-rwx /boot/grub/grub.cfg
+echo "1.7.2     Ensure local login warning banner is configured properly"
+read -p "Execute"
+echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue
+echo "1.7.3     Ensure remote login warning banner is configured properly"
+read -p "Execute"
+echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue.net
+echo "1.7.4 Ensure permissions on /etc/motd are configured"
+cp motd /etc/motd
+chown root:root /etc/motd
+chmod u-x,go-wx /etc/motd
+echo "1.7.5, 1.7.6"
+chown root:root /etc/issue
+chmod u-x,go-wx /etc/issue
+chown root:root /etc/issue.net
+chmod u-x,go-wx /etc/issue.net
+echo "2.1.1.1 Ensure time synchronization is in use"
+read -p "Execute"
+if [[ -n $(systemctl status systemd-timesync|grep active) ]]; then echo "timesyncd is present and active";else echo "timesyncd is missing"; fi
+echo "3.2.2     Ensure IP forwarding is disabled"
+read -p "Execute"
+grep -Els "^\s*net\.ipv6\.conf\.all\.forwarding\s*=\s*1" /etc/sysctl.conf /etc/sysctl.d/*.conf /usr/lib/sysctl.d/*.conf /run/sysctl.d/*.conf | while read filename; do sed -ri "s/^\s*(net\.ipv6\.conf\.all\.forwarding\s*)(=)(\s*\S+\b).*$/# *REMOVED* \1/" $filename; done; sysctl -w net.ipv6.conf.all.forwarding=0; sysctl -w net.ipv6.route.flush=1
+echo "3.2.1 and 3.3.1 to 3.3.9"
+read -p "Execute"
+./3_2_1and2-3_3_1to9.sh
+echo "4.2.2.1   to 4.2.2.3"
+read -p "Execute"
+sed -i 's/.*ForwardToSyslog\=.*/ForwardToSyslog\=yes/g' /etc/systemd/journald.conf
+sed -i 's/.*Compress\=.*/Compress\=yes/g' /etc/systemd/journald.conf
+sed -i 's/.*Storage\=.*/Storage\=persistent/g' /etc/systemd/journald.conf
+echo "4.2.3	Ensure permissions on all logfiles are configured"
+read -p "Execute"
+find /var/log -type f -exec chmod g-wx,o-rwx "{}" + -o -type d -exec chmod g-w,o-rwx "{}" +
+echo "4.4 Ensure logrotate assigns appropriate permissions"
+read -p "Execute"
+sed -i "s/\([0-9]\{3,4\}\)/0640/g" /etc/logrotate.d/*
+echo "5.1.1 to 5.1.9"
+read -p "Execute"
+chown root:root /etc/crontab
+chmod og-rwx /etc/crontab
+chown root:root /etc/cron.hourly
+chmod og-rwx /etc/cron.hourly
+chown root:root /etc/cron.daily
+chmod og-rwx /etc/cron.daily
+chown root:root /etc/cron.weekly
+chmod og-rwx /etc/cron.weekly
+chown root:root /etc/cron.monthly
+chmod og-rwx /etc/cron.monthly
+chown root:root /etc/cron.d
+chmod og-rwx /etc/cron.d
+if rpm -q cronie >/dev/null; then
+
+[ -e /etc/cron.deny ] && rm -f /etc/cron.deny
+
+[ ! -e /etc/cron.allow ] && touch /etc/cron.allow
+
+chown root:root /etc/cron.allow
+
+chmod u-x,go-rwx /etc/cron.allow
+
+else
+
+echo "cron is not installed on the system"
+
+fi
+rm /etc/at.deny
+touch /etc/at.allow
+chmod g-wx,o-rwx /etc/at.allow
+chown root:root /etc/at.allow
+
+echo "5.2.2 and 5.2.3"
+read -p "Execute"
+echo "Defaults use_pty" >>/etc/sudoers
+echo "Defaults logfile=\"/var/log/sudo.log\"" >>/etc/sudoers
+echo "5.3"
+read -p "Execute"
+chown root:root /etc/ssh/sshd_config
+chmod og-rwx /etc/ssh/sshd_config
+echo "5.3"
+read -p "Execute"
+echo "AllowUsers root glpiagent qualysagent napadmin" >> /etc/ssh/sshd_config
+echo "MaxAuthTries 4" >> /etc/ssh/sshd_config
+echo" MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256" /etc/ssh/sshd_config
+sed -i 's/.*ClientAliveInterval.*/ClientAliveInterval 900/g' /etc/ssh/sshd_config
+sed -i 's/.*ClientAliveCountMax.*/ClientAliveCountMax 0/g' /etc/ssh/sshd_config
+sed -i 's/.*LoginGraceTime.*/LoginGraceTime 60/g' /etc/ssh/sshd_config
+sed -i 's/.*Banner.*/Banner \/etc\/issue\.net/g' /etc/ssh/sshd_config
+sed -i 's/.*MaxStartups.*/MaxStartups 10\:30\:60/g' /etc/ssh/sshd_config
+echo "5.4.2"
+read -p "Execute"
+echo "auth required pam_tally2/.so onerr/=fail audit silent deny/=5 unlock/_time/=900" >> /etc/pam.d/common-auth
+echo "account required pam/_tally2/.so" >> /etc/pam.d/common-account
+echo "password required pam/_pwhistory/.so remember/=5" >>/etc/pam.d/common-password
+echo "5.5.1"
+read -p "Execute"
+sed -i 's/.*PASS_MIN_DAYS\=.*/PASS_MIN_DAYS 1/g' /etc/login.defs
+sed -i 's/.*PASS_MAX_DAYS\=.*/PASS_MAX_DAYS 365/g' /etc/login.defs
+useradd -D -f 30
+awk -F: '$1!~/(root|sync|shutdown|halt|^\+)/ && $3<'"$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)"' && $7!~/((\/usr)?\/sbin\/nologin)/ && $7!~/(\/bin)?\/false/ {print $1}' /etc/passwd | while read -r user; do usermod -s "$(which nologin)" "$user"; done
+echo "5.7"
+read -p "Execute"
+groupadd sugroup
+echo "auth required pam_wheel.so use_uid group=sugroup" >>/etc/pam.d/su
+echo "6.1"
+read -p "Execute manually"
+echo "6.2"
+read -p "Execute"
+
+awk -F: '($1!~/(halt|sync|shutdown|nfsnobody)/ && $7!~/^(\/usr)?\/sbin\/nologin(\/)?$/ && $7!~/(\/usr)?\/bin\/false(\/)?$/) { print $1 " " $6 }' /etc/passwd | while read -r user dir; do
+
+if [ ! -d "$dir" ]; then
+
+mkdir "$dir"
+
+chmod g-w,o-wrx "$dir"
+
+chown "$user" "$dir"
+
+fi
+
+done
+
+awk -F: '($1!~/(halt|sync|shutdown)/ && $7!~/^(\/usr)?\/sbin\/nologin(\/)?$/ && $7!~/(\/usr)?\/bin\/false(\/)?$/) {print $6}' /etc/passwd | while read -r dir; do
+
+if [ -d "$dir" ]; then
+
+dirperm=$(stat -L -c "%A" "$dir")
+
+if [ "$(echo "$dirperm" | cut -c6)" != "-" ] || [ "$(echo "$dirperm" | cut -c8)" != "-" ] || [ "$(echo "$dirperm" | cut -c9)" != "-" ] || [ "$(echo "$dirperm" | cut -c10)" != "-" ]; then
+
+chmod g-w,o-rwx "$dir"
+
+fi
+
+fi
+
+done
+
+awk -F: '($1!~/(halt|sync|shutdown)/ && $7!~/^(\/usr)?\/sbin\/nologin(\/)?$/ && $7!~/(\/usr)?\/bin\/false(\/)?$/) { print $1 " " $6 }' | while read -r user dir; do
+
+if [ -d "$dir" ]; then
+
+for file in "$dir"/.*; do
+
+if [ ! -h "$file" ] && [ -f "$file" ]; then
+
+fileperm=$(stat -L -c "%A" "$file")
+
+if [ "$(echo "$fileperm" | cut -c6)" != "-" ] || [ "$(echo "$fileperm" | cut -c9)" != "-" ]; then
+
+chmod go-w "$file"
+
+fi
+
+fi
+
+done
+
+fi
+
+done
+
+
+
+
+
+
+
+
+
